@@ -1,16 +1,21 @@
-import React, { useEffect, useRef, useState } from 'react'
-import { NavLink, useParams } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
+import { NavLink, useNavigate, useParams } from 'react-router-dom'
 import { http } from '../util/config'
-import { random } from 'lodash'
+import { addToCart } from '../redux/reducer/GetProductArr'
+import { useDispatch } from 'react-redux'
+
 
 const Detail = () => {
 
+  const navigate = useNavigate()
+  const dispatch = useDispatch()
   const param = useParams()
   const [arrProduct, setArrProduct] = useState([])
-  const [addCart, setAddCart] = useState({
-    id: '',
-    quantityOnCart: '',
-    sizeOnCart: ''
+  const [selectedSize, setSelectedSize] = useState();
+  const [cartProduct, setCartProduct] = useState({
+    id: param.id,
+    quantityCart: 1,
+    sizeOnCart: null
   })
   const [quantityOnCart, setQuantityOnCart] = useState(1)
   const [productDetail, setProductDetail] = useState({
@@ -28,14 +33,54 @@ const Detail = () => {
     feature: true,
     image: "https://shop.cyberlearn.vn/images/vans-black-black.png",
   })
+
+  // Xu li size
+  const handleSizeChange = (size) => {
+    setSelectedSize(size)
+    setCartProduct(prevState => ({
+      ...prevState,
+      sizeOnCart: size
+    }))
+
+  };
   //xu li nhap so luong
+  const handleAddMinusQuantity = (value) => {
+    let newQuantity = parseInt(quantityOnCart) + value;
+    if (!isNaN(newQuantity)) { // Kiểm tra nếu giá trị là một số hợp lệ
+      setQuantityOnCart(newQuantity);
+      setCartProduct(prevState => ({
+        ...prevState,
+        quantityCart: newQuantity
+      }));
+    } else {
+      // Xử lý trường hợp giá trị không phải là số
+      console.log('Giá trị không hợp lệ');
+    }
+  }
   const handleChange = (event) => {
-    setQuantityOnCart(event.target.value)
-    console.log(quantityOnCart);
+    if (event) {
+      setQuantityOnCart(event.target.value)
+      setCartProduct(prevState => ({
+        ...prevState,
+        quantityCart: event.target.value
+      }))
+    } else {
+      setCartProduct(prevState => ({
+        ...prevState,
+        quantityCart: quantityOnCart
+      }))
+    }
   }
   // xu lí submit
-  const handleSubmit = () => {
-    console.log(132);
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (cartProduct.quantityCart === null || cartProduct.sizeOnCart === null) {
+      alert("hãy nhập đủ dữ liệu")
+    } else {
+      /// Gửi action lên redux
+      const action = addToCart({ ...cartProduct })
+      dispatch(action)
+    }
   }
 
   //render related product
@@ -50,7 +95,7 @@ const Detail = () => {
   }
 
   // render đối tượng
-  const getProductByIdApi = async (prodId) => {
+  const getProductByIdApi = async () => {
     try {
       const res = await http.get('/api/Product/getbyid?id=' + param.id)
       setProductDetail(res.data.content)
@@ -62,8 +107,10 @@ const Detail = () => {
   useEffect(() => {
     getProductDetailApi()
     getProductByIdApi()
+    
+    return () => {
 
-
+    }
   }, [])
   return (
     <div className='container'>
@@ -75,26 +122,36 @@ const Detail = () => {
           <h1>{productDetail.name.toUpperCase()}</h1>
           <p>{productDetail.description}</p>
           <p style={{ color: 'green' }}>Available size</p>
-          <form onSubmit={handleSubmit}>
-            <div className='row'>
+          <form>
+            <div className='row' role="group" aria-label="Basic checkbox toggle button group">
               {
                 productDetail.size.map((prodSize) => {
-                  return <div className="col-1" key={prodSize}>
-                    <input type="checkbox" className="btn-check" id={prodSize} autoComplete="on" />
-                    <label className="btn btn-outline-primary" htmlFor={prodSize}>{prodSize}</label>
-                  </div>
-
+                  return (
+                    <div className="col-1" key={prodSize}>
+                      <input
+                        type="checkbox"
+                        className="btn-check"
+                        id={prodSize}
+                        checked={selectedSize === prodSize}
+                        onChange={() => handleSizeChange(prodSize)}
+                        autoComplete="off"
+                      />
+                      <label className="btn btn-outline-primary text-center" htmlFor={prodSize}>
+                        {prodSize}
+                      </label>
+                    </div>
+                  );
                 })
               }
             </div>
             <h3 className=' text-danger mt-2' style={{ width: 'auto' }}>{productDetail.price} $</h3>
-            <div className=' d-flex'>
-              <button type='button' id='minusBtn' name='minusBtn' className='btn btn-success ms-2 ' onClick={() => setQuantityOnCart(quantityOnCart - 1)}>-</button>
-              <input type='number' maxLength={3} className='ms-2' style={{width:100}} name='quantityOnCart' value={quantityOnCart} id='quantityOnCart' onChange={handleChange} />
-              <button type='button' id='addBtn' name='addBtn' className='btn btn-success ms-2' onClick={() => setQuantityOnCart(quantityOnCart + 1)}>+</button>
+            <div className='d-flex form-group'>
+              <button type='button' className='btn btn-success' onClick={() => handleAddMinusQuantity(-1)} >-</button>
+              <input type='number' className='ms-2 form-control' style={{ width: 100 }} value={quantityOnCart} id='quantityOnCart' onChange={handleChange} />
+              <button type='button' className='btn btn-success' onClick={() => handleAddMinusQuantity(1)}>+</button>
             </div>
             <div className='mt-3'>
-              <button className='text-white border-0 px-5 py-3' type='submit' style={{ backgroundImage: 'linear-gradient(#ff8a00, #e52e71)' }}>Add to cart</button>
+              <button type='button' onClick={handleSubmit} className='text-white border-0 px-5 py-3' style={{ backgroundImage: 'linear-gradient(#ff8a00, #e52e71)' }} >Add to cart</button>
             </div>
           </form>
         </div>
@@ -113,7 +170,7 @@ const Detail = () => {
                 </div>
               </div>
               <div className='d-flex'>
-                <a href={`/detail/${prod.id}`} className='text-white w-50 p-3 text-center' style={{ background: 'rgb(157, 225, 103)', textDecoration: 'none', fontSize: 20 }}>Buy now</a>
+                <NavLink to={`/detail/`+prod.id} className='text-white w-50 p-3 text-center' style={{ background: 'rgb(157, 225, 103)', textDecoration: 'none', fontSize: 20 }}>Buy now</NavLink>
                 <button disabled className='text-white w-50 p-3' style={{ background: 'gray', borderRadius: 'none', border: 'none' }}>{prod.price}$</button>
               </div>
             </div>

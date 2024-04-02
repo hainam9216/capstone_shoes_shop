@@ -1,10 +1,10 @@
 import React from 'react'
 import {configureStore} from '@reduxjs/toolkit'
-import HomeReducer from './reducer/HomeReducer'
+import addToCart   from './reducer/GetProductArr'
 
 
 export const store = configureStore({
     reducer:{
-        setProductAction: HomeReducer
+        addToCart: addToCart,
     }
 })
